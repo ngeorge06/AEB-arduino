@@ -1,7 +1,7 @@
 # Dual-Node AEB Trigger
 
-Two Arduino Unos (C++, PlatformIO). A **sensor node** reads five HC-SR04 ultrasonic
-sensors and sends the distances over UART. A **relay node** decodes them, works out
+Two Arduino Unos (C++, PlatformIO). A sensor node reads five HC-SR04 ultrasonic
+sensors and sends the distances over UART. A relay node decodes them, works out
 time-to-collision and drives hazard and brake outputs.
 
 <p align="center">
@@ -21,7 +21,8 @@ means it isn't stuck behind a sensor sweep.
 
 ## Protocol
 
-8-byte frame over SoftwareSerial at 9600 baud, one frame per full sweep:
+8-byte frame over SoftwareSerial at 9600 baud. One frame is sent at the end of each
+sweep, and another immediately whenever a sensor reads under 100 cm:
 
 | Byte | Field | Value |
 |------|-------|-------|
@@ -41,8 +42,8 @@ brake output switches on. A `255` reading clears the history, so a missing readi
 never treated as a close one.
 
 Thresholds are based on UK Highway Code: 0.67 s reaction time and about
-6.6 m/s² deceleration, both worked out from the stopping distance table. The 0.67 s
-human reaction is replaced with an estimated system latency.
+6.6 m/s² deceleration, both taken from the stopping distance table. The 0.67 s human
+reaction is replaced with the estimated system latency below.
 
 ## Latency (estimated)
 
@@ -52,15 +53,18 @@ at least 12 ms per sensor slot. A timeout slot lasts 30 ms.
 Worst case is one close object among four timeouts, appearing just after its sensor
 was read, so it is only seen on the next sweep:
 
-| Stage | Time |
-|-------|------|
-| Wait for next sweep and finish it | ~240 ms |
-| Frame transmit (8 bytes at 9600 baud) | ~8 ms |
-| Actuator (assumed) | ~100 ms |
-| **Total** | **~350 ms** |
+| Stage | Object under 100 cm | Object over 100 cm |
+|-------|---------------------|--------------------|
+| Wait for sensor's next turn | ~150 ms | - |
+| Wait for sweep to finish | - | ~240 ms |
+| Frame transmit (8 bytes at 9600 baud) | ~8 ms | ~8 ms |
+| Actuator (assumed) | ~100 ms | ~100 ms |
+| Total | ~250 ms | ~350 ms |
 
-At 350 ms, stopping distance is `v x 0.35 + v^2 / 13.2`. With a usable sensor range
-of about 3.5 m, that gives a maximum speed of about **4.9 m/s (11 mph)**.
+Early send only applies under 100 cm. At 5 m/s the car needs about 3 m to stop, so an
+obstacle is first seen well beyond 100 cm and waits for the sweep to finish. The speed
+limit uses the 350 ms figure. Stopping distance is `v x 0.35 + v^2 / 13.2`, and with a
+sensor range of about 3.5 m that gives a maximum speed of about 4.9 m/s (11 mph).
 
 ## Build
 
@@ -77,3 +81,5 @@ and 13 (TX), cross-connected. Relay outputs: pin 2 hazards, pin 3 brake.
 - `pulseIn()` blocks, so the sweep is slow. Interrupt-based echo capture would fix it.
 - Only relative speed is measured, so a close gap at constant speed isn't flagged.
 - Latency is calculated, not measured on hardware.
+- Early sends make frames arrive at uneven intervals, so the closing speed between
+  frames can be wrong. Tracking each sensor separately would fix it.
