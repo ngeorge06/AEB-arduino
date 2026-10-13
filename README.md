@@ -61,7 +61,7 @@ was read, so it is only seen on the next sweep:
 | Actuator (assumed) | ~100 ms | ~100 ms |
 | Total | ~250 ms | ~350 ms |
 
-Early send only applies under 100 cm. At 5 m/s the car needs about 3 m to stop, so an
+Early send only applies under 100 cm. At 5 m/s the car needs about 3.6 m to stop, so an
 obstacle is first seen well beyond 100 cm and waits for the sweep to finish. The speed
 limit uses the 350 ms figure. Stopping distance is `v x 0.35 + v^2 / 13.2`, and with a
 sensor range of about 3.5 m that gives a maximum speed of about 4.9 m/s (11 mph).
