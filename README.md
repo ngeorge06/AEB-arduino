@@ -21,7 +21,7 @@ means it isn't stuck behind a sensor sweep.
 
 ## Protocol
 
-8-byte frame over SoftwareSerial at 9600 baud:
+8-byte frame over SoftwareSerial at 9600 baud, one frame per full sweep:
 
 | Byte | Field | Value |
 |------|-------|-------|
@@ -47,20 +47,20 @@ human reaction is replaced with an estimated system latency.
 ## Latency (estimated)
 
 Sensors fire in the order 1,3,5,2,4 so consecutive sensors are never neighbours, with
-at least 12 ms per sensor slot. A frame is sent immediately if any sensor reads under
-100 cm, instead of waiting for the whole sweep.
+at least 12 ms per sensor slot. A timeout slot lasts 30 ms.
 
-Worst case is one close object among four timeouts:
+Worst case is one close object among four timeouts, appearing just after its sensor
+was read, so it is only seen on the next sweep:
 
 | Stage | Time |
 |-------|------|
-| Sweep, object missed by one cycle | ~140 ms |
+| Wait for next sweep and finish it | ~240 ms |
 | Frame transmit (8 bytes at 9600 baud) | ~8 ms |
 | Actuator (assumed) | ~100 ms |
-| **Total** | **~250 ms** |
+| **Total** | **~350 ms** |
 
-At 250 ms, stopping distance is `v x 0.25 + v^2 / 13.2`. With a usable sensor range
-of about 3.5 m, that gives a maximum speed of about **5.4 m/s (12 mph)**.
+At 350 ms, stopping distance is `v x 0.35 + v^2 / 13.2`. With a usable sensor range
+of about 3.5 m, that gives a maximum speed of about **4.9 m/s (11 mph)**.
 
 ## Build
 
