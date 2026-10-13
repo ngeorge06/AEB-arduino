@@ -8,7 +8,15 @@ const int numSensors = NUM_SENSORS; // number of sensors, from protocol.h
 const int trigPins[numSensors] = {2,4,6,8,10};
 const int echoPins[numSensors] = {3,5,7,9,11};
 
+// firing order 1,3,5,2,4 - reduces cross-talk
+const int fireOrder[numSensors] = {0,2,4,1,3};
+
+const int minSlotMs = 12; // minimum time per sensor before firing the next
+const uint8_t earlySendCm = 100; // Threshold where AEB triggers immediately instead of waiting for sweep to finish
+
 SoftwareSerial relay(12, 13); // RX, TX
+
+Frame frame; // global so older readings persist between sweeps
 
 long getDistance(int trigPin, int echoPin) {
 
@@ -39,27 +47,36 @@ void setup() {
   for (int i = 0; i < numSensors; i++) {
     pinMode(trigPins[i], OUTPUT);
     pinMode(echoPins[i], INPUT);
+    frame.distances[i] = 255; // no reading yet
+  }
+}
+
+void sendFrame() {
+  uint8_t buffer[FRAME_SIZE]; // 8 bytes
+  encodeFrame(&frame, buffer); // buffer is automatically passed as a pointer
+
+  for (int i = 0; i < FRAME_SIZE; i++){
+    relay.write(buffer[i]);
   }
 }
 
 void loop() {
-  Frame frame; // empty frame
-
-  // get distance
   for (int i = 0; i < numSensors; i++) {
-    frame.distances[i] = getDistance(trigPins[i], echoPins[i]);
-    delay(12); // avoid cross-talk, need 60ms minimum for re-trigger
+    int s = fireOrder[i];
+    uint32_t start = millis();
+
+    frame.distances[s] = getDistance(trigPins[s], echoPins[s]);
+
+    // don't wait for the rest of the sweep
+    if (frame.distances[s] < earlySendCm) {
+      sendFrame();
+    }
+
+    // only pad if the reading was quick
+    uint32_t elapsed = millis() - start;
+    if (elapsed < minSlotMs) {
+      delay(minSlotMs - elapsed);
+    }
   }
 
-  // prepare for transfer
-  uint8_t buffer[FRAME_SIZE]; // 7 bytes
-  encodeFrame(&frame, buffer); // buffer is automatically passed as a pointer
-
-  // SEND
-  for (int i = 0; i < FRAME_SIZE; i++){
-    relay.write(buffer[i])
-  }
-}
-
-
-
+  sendFrame();

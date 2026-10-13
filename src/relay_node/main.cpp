@@ -28,9 +28,9 @@ void loop() {
 
     Frame frame;
     if (ParserProcess(&parser, b, &frame)) {
-      
+
       uint8_t closest = 255;
-      
+
       for (int i = 0; i < NUM_SENSORS; i++) {
 
         // only the closest value gets sent as update
@@ -39,14 +39,17 @@ void loop() {
         }
 
         Serial.print(frame.distances[i]);
-        Serial.print(", ")
+        Serial.print(", ");
       }
 
       AEBStatus status = ttcUpdate(&ttc, closest);
-      Serial.println();
-      
+
+      // drive the outputs: hazards on for either warning level,
+      // brake only on a full AEB trigger
+      digitalWrite(hazards, (status == BRAKE || status == AEB) ? HIGH : LOW);
+      digitalWrite(brake,   (status == AEB) ? HIGH : LOW);
+
+      Serial.println(status);
     }
-
-
   }
 }
